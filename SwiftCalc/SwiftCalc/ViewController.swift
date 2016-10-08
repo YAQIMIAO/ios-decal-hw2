@@ -27,7 +27,6 @@ class ViewController: UIViewController {
     var previousTerm: Double = 0
     var currentTerm: Double?
     var previousOperator: String = ""
-    var tempInput: Bool = false
     
 
     override func viewDidLoad() {
@@ -55,10 +54,43 @@ class ViewController: UIViewController {
         print("Update me like one of those PCs")
     }
     
-    func clearInput() {
+    func inputReset() {
         input = ""
         inputContainsDot = false
     }
+    
+    
+    func calculationReset() {
+        inputContainsDot = false
+        input = ""
+        previousTerm = 0
+        currentTerm = nil
+        previousOperator = ""
+    }
+    
+    func inputAppend(number digit: String) {
+        // doesn't exceed length limit
+        guard input.characters.count < 7 else { return }
+        if digit == "." {
+            // input doesn't contains dot
+            if input.range(of: ".") != nil {
+                return
+            }
+            // input is empty, add zero first
+            if input.isEmpty {
+                input = "0"
+            }
+        } else {
+            // don't add zero if the input is already zero
+            if input == "0" && digit == "0" {
+                return
+            }
+        }
+        input += digit
+        currentTerm = Double(input)
+        updateResultLabel(input)
+    }
+    
     
     func displayDouble(number previousTerm: Double) -> String {
         var displayResult: String = "\(previousTerm)"
@@ -82,20 +114,18 @@ class ViewController: UIViewController {
     //       Modify this one or create your own.
     func calculate() -> Double {
         guard !previousOperator.isEmpty else { return 0 }
-//        let secondTerm: Double = Double(input) ?? 0
-        let secondTerm: Double = currentTerm ?? 0
         if previousOperator == "+" {
             previousOperator = ""
-            return previousTerm + secondTerm
+            return previousTerm + currentTerm!
         } else if previousOperator == "-" {
             previousOperator = ""
-            return previousTerm - secondTerm
+            return previousTerm - currentTerm!
         } else if previousOperator == "*" {
             previousOperator = ""
-            return previousTerm * secondTerm
+            return previousTerm * currentTerm!
         } else if previousOperator == "/" {
             previousOperator = ""
-            return previousTerm / secondTerm
+            return previousTerm / currentTerm!
         }
         return 0
     }
@@ -117,91 +147,113 @@ class ViewController: UIViewController {
     // REQUIRED: The responder to a number button being pressed.
     func numberPressed(_ sender: CustomButton) {
         guard Int(sender.content) != nil else { return }
-        guard input.characters.count < 7 else { return }
         print("The number \(sender.content) was pressed")
         // Fill me in!
-        input = input + sender.content
-        updateResultLabel(input)
-        currentTerm = Double(input)
+        inputAppend(number: sender.content)
     }
     
     // REQUIRED: The responder to an operator button being pressed.
     func operatorPressed(_ sender: CustomButton) {
         // Fill me in!
         print("The operator \(sender.content) was pressed")
-        // c
+        // c: single
         if sender.content.caseInsensitiveCompare("c") == ComparisonResult.orderedSame {
-            clearInput()
-            updateResultLabel("0")
-            return
-        // ac
-        } else if sender.content.caseInsensitiveCompare("ac") == ComparisonResult.orderedSame {
-            previousTerm = 0
-            previousOperator = ""
-            clearInput()
+            if (resultLabel.text == "0") {
+                calculationReset()
+            } else {
+                inputReset()
+            }
             updateResultLabel("0")
             return
         // +/-
         } else if sender.content == "+/-" {
+            if currentTerm ?? 0 > 0 && resultLabel.text!.characters.count >= 7 { return }
+            // case 1: empty input, no currentTerm / initial state ("0" -> "-0")
+            if input.isEmpty && currentTerm == nil {
+                input = "-0"
+                updateResultLabel(input)
+                currentTerm = 0
+                return
+            }
+            // case 2: normal input sign change (input change -> update resultLabel, currentTerm)
             if !input.isEmpty {
-                if currentTerm ?? 0 <= 0 {
-                    currentTerm = -(currentTerm ?? 0)
-                    input = displayDouble(number: currentTerm!)
-                } else if currentTerm ?? 0 > 0 && input.characters.count < 7 {
+                if input[input.startIndex] == "-" {
+                    input = input[input.index(after: input.startIndex)..<input.endIndex]
+                } else {
                     input = "-" + input
-                    currentTerm = Double(input)!
-                } else { return }
-            } else if currentTerm ?? 0 <= 0 || (currentTerm ?? 0 > 0 && displayDouble(number: currentTerm ?? 0).characters.count < 7) {
-                currentTerm = -(currentTerm ?? 0)
+                }
+                updateResultLabel(input)
+                currentTerm = Double(input)
+                return
+            }
+            // case 3: calculation result sign change (input empty, change currentTerm)
+            if input.isEmpty && currentTerm != nil {
+                currentTerm = -currentTerm!
                 updateResultLabel(displayDouble(number: currentTerm!))
+                return
             }
             return
         // %
         } else if sender.content == "%" {
             if !input.isEmpty {
+                // case 1: input %
                 currentTerm = currentTerm ?? 0 / 100
                 input = displayDouble(number: currentTerm!)
                 updateResultLabel(input)
             } else {
+                // case 2: prvious result %
                 currentTerm = currentTerm ?? 0 / 100
                 updateResultLabel(displayDouble(number: currentTerm!))
             }
             return
-        // +, -, *, /, =
-        } else if !previousOperator.isEmpty && currentTerm != nil { // if for a (op) b, a, b, and op all available
-            // finish previous calculation
-            // store result in previousTerm
-            previousTerm = calculate()
-            currentTerm = previousTerm
-            // store operator in previous operator
-            if ["+", "-", "*", "/"].contains(sender.content) {
-                // + - * /
-                previousOperator = sender.content
-            } else {
-                // =
-                previousOperator = ""
-            }
-            // clean input, inputContainsDot
-            clearInput()
-            // update resultLabel with the result of previous calculation (previousTerm)
-            if currentTerm! < 1e7 {
+        } else if sender.content == "=" {
+            if previousOperator.isEmpty {
+                previousTerm = currentTerm ?? 0
+                inputReset()
+            } else if !input.isEmpty || currentTerm != nil {
+                currentTerm = calculate()
                 updateResultLabel(displayDouble(number: currentTerm!))
+                inputReset()
             } else {
-                // TODO: scientific notation
+                currentTerm = 0
+                currentTerm = calculate()
+                updateResultLabel(displayDouble(number: currentTerm!))
+                inputReset()
             }
             return
-        // a = a or waiting for second term
-        } else if previousOperator.isEmpty && currentTerm != nil {
+        // +, -, *, /
+        } else if previousOperator.isEmpty { // first time operator pressed
             // store input in previousTerm
-            previousTerm = currentTerm!
+            previousTerm = currentTerm ?? 0
             //store operator in previous operator
             previousOperator = sender.content
             //clean input, inputContainsDot
-            clearInput()
+            inputReset()
             currentTerm = nil
             return
-        } else if currentTerm == nil {
+        } else if currentTerm == nil { // change operator
             previousOperator = sender.content
+            return
+        } else { // if for a (op) b, a, b, and op all available
+            if previousOperator.isEmpty {
+                previousTerm = currentTerm ?? 0
+                inputReset()
+            } else if !input.isEmpty || currentTerm != nil {
+                currentTerm = calculate()
+                updateResultLabel(displayDouble(number: currentTerm!))
+                inputReset()
+            } else {
+                currentTerm = 0
+                currentTerm = calculate()
+                updateResultLabel(displayDouble(number: currentTerm!))
+                inputReset()
+            }
+            previousTerm = currentTerm ?? 0
+            //store operator in previous operator
+            previousOperator = sender.content
+            //clean input, inputContainsDot
+            inputReset()
+            currentTerm = nil
             return
         }
     }
@@ -210,21 +262,7 @@ class ViewController: UIViewController {
     func buttonPressed(_ sender: CustomButton) {
        // Fill me in!
         print("The button \(sender.content) was pressed")
-        if (sender.content == ".") {
-            guard !inputContainsDot else { return }
-            guard input.characters.count < 7 else { return }
-            if input.isEmpty {
-                input = "0"
-            }
-            input += sender.content
-            inputContainsDot = true
-            updateResultLabel(input)
-        } else if sender.content == "0" {
-            if input.isEmpty {
-                updateResultLabel("0")
-            }
-        }
-        currentTerm = Double(input) ?? 0
+        inputAppend(number: sender.content)
     }
     
     // IMPORTANT: Do NOT change any of the code below.
