@@ -19,14 +19,14 @@ class ViewController: UIViewController {
     // MARK: The label to display our calculations
     var resultLabel = UILabel()
     
-    // TODO: This looks like a good place to add some data structures.
-    //       One data structure is initialized below for reference.
+    // This looks like a good place to add some data structures.
+    // One data structure is initialized below for reference.
     var someDataStructure: [String] = [""]
-    var inputContainsDot: Bool = false
     var input: String = ""
     var previousTerm: Double = 0
     var currentTerm: Double?
     var previousOperator: String = ""
+    let ResultMaxLength = 7
     
 
     override func viewDidLoad() {
@@ -48,20 +48,14 @@ class ViewController: UIViewController {
         // Dispose of any resources that can be recreated.
     }
     
-    // TODO: A method to update your data structure(s) would be nice.
-    //       Modify this one or create your own.
-    func updateSomeDataStructure(_ content: String) {
-        print("Update me like one of those PCs")
-    }
+    // Methods that updates data structure
     
     func inputReset() {
         input = ""
-        inputContainsDot = false
     }
     
     
     func calculationReset() {
-        inputContainsDot = false
         input = ""
         previousTerm = 0
         currentTerm = nil
@@ -70,7 +64,7 @@ class ViewController: UIViewController {
     
     func inputAppend(number digit: String) {
         // doesn't exceed length limit
-        guard input.characters.count < 7 else { return }
+        guard input.characters.count < ResultMaxLength else { return }
         if digit == "." {
             // input doesn't contains dot
             if input.range(of: ".") != nil {
@@ -91,57 +85,53 @@ class ViewController: UIViewController {
         updateResultLabel(input)
     }
     
+    // Helper: double formatter
+    func scientificFormat(val number: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .scientific
+        formatter.exponentSymbol = "e"
+        return formatter.string(from: NSNumber(value: number))!
+    }
     
-    func displayDouble(number previousTerm: Double) -> String {
-        var displayResult: String = "\(previousTerm)"
+    func displayDouble(number value: Double) -> String {
+        var displayResult: String = "\(value)"
         if displayResult.hasSuffix(".0") {
             displayResult = displayResult[displayResult.startIndex..<displayResult.index(displayResult.endIndex, offsetBy: -2)]
         }
-        if displayResult.characters.count > 7 {
-            return displayResult[displayResult.startIndex..<displayResult.index(displayResult.startIndex, offsetBy: 7)]
+        if displayResult.characters.count > ResultMaxLength {
+            var scientificNotation = scientificFormat(val: value)
+            if scientificNotation.characters.count > ResultMaxLength {
+                let firstPart: String.Index = scientificNotation.range(of: "e")!.lowerBound
+                if scientificNotation[firstPart..<scientificNotation.endIndex].characters.count >= ResultMaxLength {
+                    // TODO: Throw an error, when the result is too long to be displayed
+                    return scientificNotation
+                } else {
+                    return scientificNotation[scientificNotation.startIndex..<scientificNotation.index(firstPart, offsetBy: ResultMaxLength - scientificNotation.characters.count)] + scientificNotation[firstPart..<scientificNotation.endIndex]
+                }
+            }
         }
         return displayResult
     }
     
-    // TODO: Ensure that resultLabel gets updated.
-    //       Modify this one or create your own.
     func updateResultLabel(_ content: String) {
         print("Update me like one of those PCs")
         resultLabel.text = content
     }
     
-    // TODO: A calculate method with no parameters, scary!
-    //       Modify this one or create your own.
     func calculate() -> Double {
         guard !previousOperator.isEmpty else { return 0 }
-        if previousOperator == "+" {
-            previousOperator = ""
+        let opr = previousOperator
+        previousOperator = ""
+        if opr == "+" {
             return previousTerm + currentTerm!
-        } else if previousOperator == "-" {
-            previousOperator = ""
+        } else if opr == "-" {
             return previousTerm - currentTerm!
-        } else if previousOperator == "*" {
-            previousOperator = ""
+        } else if opr == "*" {
             return previousTerm * currentTerm!
-        } else if previousOperator == "/" {
-            previousOperator = ""
+        } else if opr == "/" {
             return previousTerm / currentTerm!
         }
         return 0
-    }
-    
-    // TODO: A simple calculate method for integers.
-    //       Modify this one or create your own.
-    func intCalculate(a: Int, b:Int, operation: String) -> Int {
-        print("Calculation requested for \(a) \(operation) \(b)")
-        return 0
-    }
-    
-    // TODO: A general calculate method for doubles
-    //       Modify this one or create your own.
-    func calculate(a: String, b:String, operation: String) -> Double {
-        print("Calculation requested for \(a) \(operation) \(b)")
-        return 0.0
     }
     
     // REQUIRED: The responder to a number button being pressed.
@@ -200,9 +190,12 @@ class ViewController: UIViewController {
                 currentTerm = currentTerm ?? 0 / 100
                 input = displayDouble(number: currentTerm!)
                 updateResultLabel(input)
-            } else {
+            } else if currentTerm != nil {
                 // case 2: prvious result %
-                currentTerm = currentTerm ?? 0 / 100
+                currentTerm = currentTerm! / 100
+                updateResultLabel(displayDouble(number: currentTerm!))
+            } else {
+                currentTerm = Double(resultLabel.text!)! / 100
                 updateResultLabel(displayDouble(number: currentTerm!))
             }
             return
